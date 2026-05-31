@@ -1,0 +1,7 @@
+services:
+  demo-app:
+    build: .
+    container_name: devsecops-demo-app
+    ports:
+      - "5000:5000"
+    restart: unless-stopped

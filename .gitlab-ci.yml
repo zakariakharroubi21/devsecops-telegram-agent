@@ -1,0 +1,137 @@
+stages:
+  - prepare
+  - sast
+  - dependency_scan
+  - secret_scan
+  - docker_build
+  - docker_scan
+  - deploy
+  - notify
+
+variables:
+  IMAGE_NAME: "devsecops-demo-app"
+  IMAGE_TAG: "latest"
+
+before_script:
+  - "echo Pipeline mode: $PIPELINE_MODE"
+
+prepare:
+  stage: prepare
+  image: python:3.11-slim
+  script:
+    - echo "Preparing pipeline..."
+    - python --version
+  after_script:
+    - chmod +x scripts/notify_telegram.sh || true
+    - ./scripts/notify_telegram.sh "✅ Prepare stage finished for pipeline $CI_PIPELINE_ID" || true
+
+sast_semgrep:
+  stage: sast
+  image: semgrep/semgrep:latest
+  script:
+    - echo "Running SAST with Semgrep..."
+    - semgrep scan --config auto --json --output semgrep-report.json || true
+    - cat semgrep-report.json
+  artifacts:
+    when: always
+    paths:
+      - semgrep-report.json
+  rules:
+    - if: '$PIPELINE_MODE == "scan"'
+    - if: '$PIPELINE_MODE == "full"'
+    - when: never
+  after_script:
+    - apk add --no-cache curl bash || true
+    - chmod +x scripts/notify_telegram.sh || true
+    - ./scripts/notify_telegram.sh "🛡️ SAST Semgrep terminé pour pipeline $CI_PIPELINE_ID" || true
+
+dependency_scan_python:
+  stage: dependency_scan
+  image: python:3.11-slim
+  script:
+    - echo "Running dependency scan..."
+    - pip install pip-audit
+    - pip-audit -r app/requirements.txt -f json -o pip-audit-report.json || true
+    - cat pip-audit-report.json || true
+  artifacts:
+    when: always
+    paths:
+      - pip-audit-report.json
+  rules:
+    - if: '$PIPELINE_MODE == "scan"'
+    - if: '$PIPELINE_MODE == "full"'
+    - when: never
+  after_script:
+    - apt-get update && apt-get install -y curl || true
+    - chmod +x scripts/notify_telegram.sh || true
+    - ./scripts/notify_telegram.sh "📦 Dependency scan terminé pour pipeline $CI_PIPELINE_ID" || true
+
+secret_scan_gitleaks:
+  stage: secret_scan
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  script:
+    - echo "Running secret scan with Gitleaks..."
+    - gitleaks detect --source . --report-format json --report-path gitleaks-report.json --no-git || true
+    - cat gitleaks-report.json || true
+  artifacts:
+    when: always
+    paths:
+      - gitleaks-report.json
+  rules:
+    - if: '$PIPELINE_MODE == "scan"'
+    - if: '$PIPELINE_MODE == "full"'
+    - when: never
+  after_script:
+    - echo "Secret scan finished"
+
+docker_build:
+  stage: docker_build
+  image: alpine:latest
+  script:
+    - echo "Building Docker image (SIMULATED)..."
+    - echo "docker build -t devsecops-demo-app:latest ."
+    
+docker_scan_trivy:
+  stage: docker_scan
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - echo "Running Trivy filesystem scan..."
+    - trivy fs --format json --output trivy-fs-report.json .
+    - cat trivy-fs-report.json || true
+  artifacts:
+    when: always
+    paths:
+      - trivy-fs-report.json
+  rules:
+    - if: '$PIPELINE_MODE == "scan"'
+    - if: '$PIPELINE_MODE == "full"'
+    - when: never
+
+deploy_local:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Simulated deployment successful."
+    - echo "In real environment, this would run docker compose up -d on server."
+  rules:
+    - if: '$PIPELINE_MODE == "deploy"'
+    - if: '$PIPELINE_MODE == "full"'
+    - when: never
+  after_script:
+    - apk add --no-cache curl bash || true
+    - chmod +x scripts/notify_telegram.sh || true
+    - ./scripts/notify_telegram.sh "🚀 Déploiement terminé pour pipeline $CI_PIPELINE_ID" || true
+
+notify_final:
+  stage: notify
+  image: alpine:latest
+  script:
+    - apk add --no-cache curl bash
+    - chmod +x scripts/notify_telegram.sh
+    - |
+      ./scripts/notify_telegram.sh "✅ Pipeline $CI_PIPELINE_ID terminé. Status global: $CI_JOB_STATUS"
+  when: always
