@@ -30,9 +30,9 @@ sast_semgrep:
   stage: sast
   image: semgrep/semgrep:latest
   script:
-    - echo "Running SAST with Semgrep..."
-    - semgrep scan --config auto --json --output semgrep-report.json || true
-    - cat semgrep-report.json
+  - echo "Running SAST with Semgrep..."
+  - semgrep scan --config auto --json --output semgrep-report.json .
+  - cat semgrep-report.json
   artifacts:
     when: always
     paths:
