@@ -14,7 +14,7 @@ class GitLabClient:
 
         data = {
             "ref": GITLAB_REF,
-            "variables[PIPELINE_MODE]": mode
+            "variables[PIPELINE_MODE]": str(mode)
         }
 
         response = requests.post(url,headers=self.headers, data=data)
