@@ -50,12 +50,15 @@ dependency_scan_python:
 
 secret_scan_gitleaks:
   stage: secret_scan
-  image: zricethezav/gitleaks:latest
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
   script:
-    - gitleaks detect --source . || true
-  rules:
-    - if: '$PIPELINE_MODE == "full"'
-    - when: never
+    - echo "Running Gitleaks..."
+    - gitleaks detect --source . --no-git --report-format json --report-path gitleaks-report.json || true
+  artifacts:
+    paths:
+      - gitleaks-report.json
 
 docker_build:
   stage: docker_build
