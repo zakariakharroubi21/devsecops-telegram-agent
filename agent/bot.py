@@ -2,9 +2,10 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from gitlab_client import GitLabClient
 from config import TELEGRAM_BOT_TOKEN
+import logging
 
 gitlab = GitLabClient()
-
+logging.basicConfig(level=logging.INFO)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = """

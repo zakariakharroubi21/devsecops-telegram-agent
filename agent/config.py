@@ -12,11 +12,16 @@ GITLAB_TOKEN = os.getenv("GITLAB_TOKEN")
 GITLAB_PROJECT_ID = os.getenv("GITLAB_PROJECT_ID")
 GITLAB_REF = os.getenv("GITLAB_REF", "main")
 
+GITLAB_TRIGGER_TOKEN = os.getenv("GITLAB_TRIGGER_TOKEN")
+
 if not TELEGRAM_BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN is missing")
 
 if not GITLAB_TOKEN:
     raise ValueError("GITLAB_TOKEN is missing")
+
+if not GITLAB_TRIGGER_TOKEN:
+    raise ValueError("GITLAB_TRIGGER_TOKEN is missing")
 
 if not GITLAB_PROJECT_ID:
     raise ValueError("GITLAB_PROJECT_ID is missing")

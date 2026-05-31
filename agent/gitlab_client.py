@@ -1,5 +1,5 @@
 import requests
-from config import GITLAB_URL, GITLAB_TOKEN, GITLAB_PROJECT_ID, GITLAB_REF
+from config import GITLAB_URL, GITLAB_TOKEN, GITLAB_PROJECT_ID, GITLAB_REF, GITLAB_TRIGGER_TOKEN
 
 
 class GitLabClient:
@@ -10,14 +10,16 @@ class GitLabClient:
         }
 
     def trigger_pipeline(self, mode="full"):
-        url = f"{self.base_url}/pipeline"
+        url =  f"{self.base_url}/pipeline"
 
         data = {
             "ref": GITLAB_REF,
             "variables[PIPELINE_MODE]": mode
         }
 
-        response = requests.post(url, headers=self.headers, data=data, timeout=20)
+        response = requests.post(url,headers=self.headers, data=data)
+        print("STATUS:", response.status_code)
+        print("TEXT:", response.text)
         response.raise_for_status()
         return response.json()
 
