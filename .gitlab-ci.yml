@@ -71,7 +71,9 @@ docker_build:
 
 docker_scan_trivy:
   stage: docker_scan
-  image: aquasec/trivy:latest
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
   script:
     - trivy fs --format json --output trivy-report.json .
   artifacts:
