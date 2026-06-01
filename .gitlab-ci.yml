@@ -17,6 +17,9 @@ before_script:
   - |
     echo "Pipeline mode: $PIPELINE_MODE"
 
+# -------------------------
+# PREPARE
+# -------------------------
 prepare:
   stage: prepare
   image: python:3.11-slim
@@ -26,6 +29,9 @@ prepare:
   rules:
     - when: always
 
+# -------------------------
+# SAST (SEMGREP)
+# -------------------------
 sast_semgrep:
   stage: sast
   image: semgrep/semgrep:latest
@@ -35,19 +41,26 @@ sast_semgrep:
     paths:
       - semgrep-report.json
   rules:
-    - if: '$PIPELINE_MODE == "full"'
-    - when: never
+    - if: '$PIPELINE_MODE == "scan" || $PIPELINE_MODE == "full"'
 
+# -------------------------
+# DEPENDENCY SCAN
+# -------------------------
 dependency_scan_python:
   stage: dependency_scan
   image: python:3.11-slim
   script:
     - pip install pip-audit
-    - pip-audit -r app/requirements.txt || true
+    - pip-audit -r app/requirements.txt -f json -o pipaudit-report.json || true
+  artifacts:
+    paths:
+      - pipaudit-report.json
   rules:
-    - if: '$PIPELINE_MODE == "full"'
-    - when: never
+    - if: '$PIPELINE_MODE == "scan" || $PIPELINE_MODE == "full"'
 
+# -------------------------
+# SECRET SCAN (GITLEAKS)
+# -------------------------
 secret_scan_gitleaks:
   stage: secret_scan
   image:
@@ -59,7 +72,12 @@ secret_scan_gitleaks:
   artifacts:
     paths:
       - gitleaks-report.json
+  rules:
+    - if: '$PIPELINE_MODE == "scan" || $PIPELINE_MODE == "full"'
 
+# -------------------------
+# DOCKER BUILD (SIMULATED OR REAL)
+# -------------------------
 docker_build:
   stage: docker_build
   image: alpine:latest
@@ -67,8 +85,10 @@ docker_build:
     - echo "docker build simulated"
   rules:
     - if: '$PIPELINE_MODE == "full"'
-    - when: never
 
+# -------------------------
+# DOCKER SCAN (TRIVY)
+# -------------------------
 docker_scan_trivy:
   stage: docker_scan
   image:
@@ -80,22 +100,43 @@ docker_scan_trivy:
     paths:
       - trivy-report.json
   rules:
-    - if: '$PIPELINE_MODE == "full"'
-    - when: never
+    - if: '$PIPELINE_MODE == "scan" || $PIPELINE_MODE == "full"'
 
+# -------------------------
+# DEPLOY
+# -------------------------
 deploy_local:
   stage: deploy
   image: alpine:latest
-  script:
-    - echo "Deploy simulated"
-  rules:
-    - if: '$PIPELINE_MODE == "full"'
-    - when: never
 
-notify_final:
-  stage: notify
-  image: alpine:latest
+  services:
+    -   docker:dind
   script:
-    - |
-      echo "Pipeline mode: $PIPELINE_MODE"
+    - docker compose up -d --build
+  rules:
+    - if: '$PIPELINE_MODE == "deploy" || $PIPELINE_MODE == "full"'
+
+# -------------------------
+# REPORT GENERATION (KEY PART)
+# -------------------------
+generate_report:
+  stage: notify
+  image: python:3.11-slim
+
+  needs:
+    - sast_semgrep
+    - dependency_scan_python
+    - secret_scan_gitleaks
+    - docker_scan_trivy
+
+  script:
+    - python scripts/build_scan_report.py
+    - python scripts/send_to_telegram.py
+
+  artifacts:
+    paths:
+      - telegram-report.txt
+
   when: always
+  rules:
+    - if: '$PIPELINE_MODE == "scan" || $PIPELINE_MODE == "full"'

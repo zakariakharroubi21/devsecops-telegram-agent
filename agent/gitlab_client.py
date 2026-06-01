@@ -25,13 +25,19 @@ class GitLabClient:
 
         # SAFE: only ref, no variable injection via API
         payload = {
-            "ref": GITLAB_REF
+            "ref": GITLAB_REF,
+            "variables": [
+                {
+                    "key": "PIPELINE_MODE",
+                    "value": mode
+                }
+            ]
         }
 
         response = requests.post(
             url,
             headers=self.headers,
-            data=payload
+            json=payload
         )
 
         print("STATUS:", response.status_code)
@@ -79,5 +85,18 @@ class GitLabClient:
         url = f"{self.base_url}/jobs/{job_id}/trace"
 
         response = requests.get(url, headers=self.headers, timeout=20)
+        response.raise_for_status()
+        return response.text
+    
+    def get_job_artifact(self, job_id, filename):
+        url = (
+            f"{self.base_url}/jobs/"
+            f"{job_id}/artifacts/{filename}"
+        )
+        
+        response = requests.get(
+            url,
+            headers=self.headers
+    )   
         response.raise_for_status()
         return response.text

@@ -112,6 +112,31 @@ async def logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(str(e))
+        
+async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        pipeline = gitlab.get_latest_pipeline()
+
+        jobs = gitlab.get_pipeline_jobs(pipeline["id"])
+
+        report_job = next(
+            (j for j in jobs if j["name"] == "generate_report"),
+            None
+        )
+
+        if not report_job:
+            await update.message.reply_text("Report not ready yet.")
+            return
+
+        logs = gitlab.get_job_logs(report_job["id"])
+
+        await update.message.reply_text(
+            "📊 SCAN REPORT\n\n" + logs[-3500:]
+        )
+
+    except Exception as e:
+        await update.message.reply_text(str(e))
+
 
 
 def main():
@@ -124,7 +149,7 @@ def main():
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("stop_pipeline", stop_pipeline))
     app.add_handler(CommandHandler("logs", logs))
-
+    app.add_handler(CommandHandler("report", report))
     print("🤖 DevSecOps bot running...")
     app.run_polling()
 
