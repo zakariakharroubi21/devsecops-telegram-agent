@@ -107,15 +107,23 @@ docker_scan_trivy:
 # -------------------------
 deploy_local:
   stage: deploy
-  image: alpine:latest
+  image: docker:24
 
   services:
-    -   docker:dind
+    - docker:24-dind
+
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+
   script:
-    - docker compose up -d --build
+    - docker build -t devsecops-demo-app .
+    - docker stop devsecops-demo-app || true
+    - docker rm devsecops-demo-app || true
+    - docker run -d -p 5000:5000 --name devsecops-demo-app devsecops-demo-app
+
   rules:
     - if: '$PIPELINE_MODE == "deploy" || $PIPELINE_MODE == "full"'
-
 # -------------------------
 # REPORT GENERATION (KEY PART)
 # -------------------------
@@ -130,6 +138,7 @@ generate_report:
     - docker_scan_trivy
 
   script:
+    - pip install -r requirements-ci.txt
     - python scripts/build_scan_report.py
     - python scripts/send_to_telegram.py
 
